@@ -139,4 +139,12 @@ abstract class GoogleSignInPlatform extends PlatformInterface {
   Future<bool> requestScopes(List<String> scopes) async {
     throw UnimplementedError('requestScopes() has not been implmented.');
   }
+
+  /// For web use only:
+  ///
+  /// Requests offline access to the given scopes. Attaches the serverAuthCode
+  /// to the GoogleSignInUserData.
+  Future<String?> grantOfflineAccess(List<String> scopes) {
+    throw UnimplementedError('grantOfflineAccess() has not been implmented.');
+  }
 }
