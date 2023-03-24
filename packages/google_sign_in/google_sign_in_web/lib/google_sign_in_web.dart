@@ -201,4 +201,9 @@ class GoogleSignInPlugin extends GoogleSignInPlatform {
 
     return _gisClient.requestScopes(scopes);
   }
+
+  @override
+  Future<String?> grantOfflineAccess(List<String> scopes) {
+    return _gisClient.requestServerAuthCode(scopes);
+  }
 }

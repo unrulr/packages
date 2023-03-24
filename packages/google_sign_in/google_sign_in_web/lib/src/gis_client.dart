@@ -24,7 +24,8 @@ class GisSdkClient {
     required String clientId,
     bool loggingEnabled = false,
     String? hostedDomain,
-  }) : _initialScopes = initialScopes {
+  })  : _initialScopes = initialScopes,
+        _clientId = clientId {
     if (loggingEnabled) {
       id.setLogLevel('debug');
     }
@@ -49,6 +50,7 @@ class GisSdkClient {
   void _configureStreams() {
     _tokenResponses = StreamController<TokenResponse>.broadcast();
     _credentialResponses = StreamController<CredentialResponse>.broadcast();
+    _codeResponses = StreamController<CodeResponse>.broadcast();
     _tokenResponses.stream.listen((TokenResponse response) {
       _lastTokenResponse = response;
     }, onError: (Object error) {
@@ -128,6 +130,31 @@ class GisSdkClient {
     _tokenResponses.addError(getProperty(error!, 'type'));
   }
 
+  CodeClient _initializeCodeClient(String clientId, {required String scope}) {
+    // Create a Token Client for authorization calls.
+    final CodeClientConfig codeConfig = CodeClientConfig(
+      client_id: clientId,
+      callback: allowInterop(_onCodeResponse),
+      error_callback: allowInterop(_onCodeError),
+      ux_mode: UxMode.popup,
+      scope: scope,
+    );
+
+    return oauth2.initCodeClient(codeConfig);
+  }
+
+  void _onCodeResponse(CodeResponse response) {
+    if (response.error != null) {
+      _codeResponses.addError(response.error!);
+    } else {
+      _codeResponses.add(response);
+    }
+  }
+
+  void _onCodeError(Object? error) {
+    _codeResponses.addError(getProperty(error!, 'type'));
+  }
+
   /// Attempts to sign-in the user using the OneTap UX flow.
   ///
   /// If the user consents, to OneTap, the [GoogleSignInUserData] will be
@@ -181,6 +208,9 @@ class GisSdkClient {
           'unknown_error';
 
       _credentialResponses.addError(reason);
+
+      print('dismissed for reason: ' + reason);
+
       completer.complete(null);
     }
   }
@@ -283,6 +313,19 @@ class GisSdkClient {
     return oauth2.hasGrantedAllScopes(_lastTokenResponse!, scopes);
   }
 
+  /// Creates a new CodeClient with the given scopes, and requests authorization for those
+  /// scopes.
+  Future<String> requestServerAuthCode(List<String> scopes) async {
+    final CodeClient codeClient =
+        _initializeCodeClient(_clientId, scope: scopes.join(' '));
+
+    codeClient.requestCode();
+
+    final CodeResponse codeResponse = await _codeResponses.stream.first;
+
+    return codeResponse.code;
+  }
+
   // The scopes initially requested by the developer.
   //
   // We store this because we might need to add more at `signIn`. If the user
@@ -290,12 +333,17 @@ class GisSdkClient {
   // return some basic Authentication information.
   final List<String> _initialScopes;
 
+  // We need to store this because CodeClient needs to be re-initialized whenever
+  // scopes change.  And to re-initialize, we'll need this clientId.
+  final String _clientId;
+
   // The Google Identity Services client for oauth requests.
   late TokenClient _tokenClient;
 
   // Streams of credential and token responses.
   late StreamController<CredentialResponse> _credentialResponses;
   late StreamController<TokenResponse> _tokenResponses;
+  late StreamController<CodeResponse> _codeResponses;
 
   // The last-seen credential and token responses
   CredentialResponse? _lastCredentialResponse;

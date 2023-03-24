@@ -424,4 +424,9 @@ class GoogleSignIn {
     await _ensureInitialized();
     return GoogleSignInPlatform.instance.requestScopes(scopes);
   }
+
+  Future<String?> grantOfflineAccess(List<String> scopes) async {
+    await _ensureInitialized();
+    return GoogleSignInPlatform.instance.grantOfflineAccess(scopes);
+  }
 }
