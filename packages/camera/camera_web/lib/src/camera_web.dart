@@ -39,6 +39,18 @@ class CameraPlugin extends CameraPlatform {
 
   final CameraService _cameraService;
 
+  /// Warning, hack.
+  ///
+  /// This allows the user to change the audioInput, but does
+  /// it in a _global_ way.  The proper way would be to track this
+  /// state in the CameraController, but we do it here because:
+  ///
+  /// 1. We only need it for the web
+  /// 2. It helps us limit the scope of our changes to the
+  ///    camera_web project (CameraController lives in the base
+  ///    camera project).
+  AudioDescription? _audioDescription;
+
   /// The cameras managed by the [CameraPlugin].
   @visibleForTesting
   final Map<int, Camera> cameras = <int, Camera>{};
@@ -81,45 +93,79 @@ class CameraPlugin extends CameraPlatform {
   @visibleForTesting
   html.Window? window = html.window;
 
+  Future<Iterable<html.MediaDeviceInfo>> _getMediaDeviceInfo() async {
+    final html.MediaDevices? mediaDevices = window?.navigator.mediaDevices;
+
+    // Throw a not supported exception if the current browser window
+    // does not support any media devices.
+    if (mediaDevices == null) {
+      throw PlatformException(
+        code: CameraErrorCode.notSupported.toString(),
+        message: 'The camera is not supported on this device.',
+      );
+    }
+
+    // Request video permissions only.
+    final html.MediaStream cameraStream =
+        await _cameraService.getMediaStreamForOptions(const CameraOptions());
+
+    // Release the camera stream used to request video permissions.
+    cameraStream
+        .getVideoTracks()
+        .forEach((html.MediaStreamTrack videoTrack) => videoTrack.stop());
+
+    // Request available media devices.
+    return (await mediaDevices.enumerateDevices())
+        .whereType<html.MediaDeviceInfo>();
+  }
+
+  /// Returns a list of available microphones, provided by a call to
+  /// navigator.mediaDevices().enumerateDevices().
+  Future<List<AudioDescription>> availableMicrophones() async {
+    final List<AudioDescription> microphones = <AudioDescription>[];
+
+    try {
+      final Iterable<html.MediaDeviceInfo> audioInputDevices =
+          (await _getMediaDeviceInfo())
+              .where((html.MediaDeviceInfo device) =>
+                  device.kind == MediaDeviceKind.audioInput)
+              .where((html.MediaDeviceInfo device) => device.deviceId != null);
+
+      for (final html.MediaDeviceInfo device in audioInputDevices) {
+        microphones.add(
+          AudioDescription(deviceId: device.deviceId!, label: device.label),
+        );
+      }
+    } on html.DomException catch (e) {
+      throw CameraException(e.name, e.message);
+    } on PlatformException catch (e) {
+      throw CameraException(e.code, e.message);
+    } on CameraWebException catch (e) {
+      _addCameraErrorEvent(e);
+      throw CameraException(e.code.toString(), e.description);
+    }
+
+    return microphones;
+  }
+
   @override
   Future<List<CameraDescription>> availableCameras() async {
     try {
-      final html.MediaDevices? mediaDevices = window?.navigator.mediaDevices;
       final List<CameraDescription> cameras = <CameraDescription>[];
 
-      // Throw a not supported exception if the current browser window
-      // does not support any media devices.
-      if (mediaDevices == null) {
-        throw PlatformException(
-          code: CameraErrorCode.notSupported.toString(),
-          message: 'The camera is not supported on this device.',
-        );
-      }
-
-      // Request video permissions only.
-      final html.MediaStream cameraStream =
-          await _cameraService.getMediaStreamForOptions(const CameraOptions());
-
-      // Release the camera stream used to request video permissions.
-      cameraStream
-          .getVideoTracks()
-          .forEach((html.MediaStreamTrack videoTrack) => videoTrack.stop());
-
-      // Request available media devices.
-      final List<dynamic> devices = await mediaDevices.enumerateDevices();
-
       // Filter video input devices.
-      final Iterable<html.MediaDeviceInfo> videoInputDevices = devices
-          .whereType<html.MediaDeviceInfo>()
-          .where((html.MediaDeviceInfo device) =>
-              device.kind == MediaDeviceKind.videoInput)
+      final Iterable<html.MediaDeviceInfo> videoInputDevices =
+          (await _getMediaDeviceInfo())
+              .whereType<html.MediaDeviceInfo>()
+              .where((html.MediaDeviceInfo device) =>
+                  device.kind == MediaDeviceKind.videoInput)
 
-          /// The device id property is currently not supported on Internet Explorer:
-          /// https://developer.mozilla.org/en-US/docs/Web/API/MediaDeviceInfo/deviceId#browser_compatibility
-          .where(
-            (html.MediaDeviceInfo device) =>
-                device.deviceId != null && device.deviceId!.isNotEmpty,
-          );
+              /// The device id property is currently not supported on Internet Explorer:
+              /// https://developer.mozilla.org/en-US/docs/Web/API/MediaDeviceInfo/deviceId#browser_compatibility
+              .where(
+                (html.MediaDeviceInfo device) =>
+                    device.deviceId != null && device.deviceId!.isNotEmpty,
+              );
 
       // Map video input devices to camera descriptions.
       for (final html.MediaDeviceInfo videoInputDevice in videoInputDevices) {
@@ -226,7 +272,12 @@ class CameraPlugin extends CameraPlatform {
         textureId: textureId,
         cameraService: _cameraService,
         options: CameraOptions(
-          audio: AudioConstraints(enabled: enableAudio),
+          audio: _audioDescription == null
+              ? AudioConstraints(enabled: enableAudio)
+              : AudioConstraints(
+                  enabled: enableAudio,
+                  deviceId: _audioDescription!.deviceId,
+                ),
           video: VideoConstraints(
             facingMode:
                 cameraType != null ? FacingModeConstraint(cameraType) : null,
@@ -573,6 +624,13 @@ class CameraPlugin extends CameraPlatform {
     throw UnimplementedError('setFocusPoint() is not implemented.');
   }
 
+  /// Sets the active audio input.  See notes on _audioDescription for
+  /// the why.
+  // ignore: use_setters_to_change_properties
+  void setAudioInput(AudioDescription? ad) {
+    _audioDescription = ad;
+  }
+
   @override
   Future<double> getMaxZoomLevel(int cameraId) async {
     try {
@@ -696,4 +754,19 @@ class CameraPlugin extends CameraPlatform {
       ),
     );
   }
+}
+
+/// Holds a description of an audio source.
+class AudioDescription {
+  /// Creates a new instance of AudioDescription
+  AudioDescription({
+    required this.deviceId,
+    required this.label,
+  });
+
+  /// stuff
+  final String? label;
+
+  /// more stuff
+  final String deviceId;
 }
