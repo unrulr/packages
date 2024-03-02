@@ -300,8 +300,14 @@ class GoogleSignInPlugin extends GoogleSignInPlatform {
 
   /// Requests server auth code from GIS Client per:
   /// https://developers.google.com/identity/oauth2/web/guides/use-code-model#initialize_a_code_client
-  Future<String?> requestServerAuthCode() async {
+  Future<String?> requestServerAuthCode({
+    List<String>? scopes,
+    bool? includeGrantedScopes,
+  }) async {
     await initialized;
-    return _gisClient.requestServerAuthCode();
+    return _gisClient.requestServerAuthCode(
+      scopes: scopes,
+      includeGrantedScopes: includeGrantedScopes,
+    );
   }
 }

@@ -28,10 +28,13 @@ class GisSdkClient {
     String? hostedDomain,
   })  : _initialScopes = initialScopes,
         _loggingEnabled = loggingEnabled,
-        _userDataEventsController = userDataController {
+        _userDataEventsController = userDataController,
+        _clientId = clientId,
+        _hostedDomain = hostedDomain {
     if (_loggingEnabled) {
       id.setLogLevel('debug');
     }
+
     // Configure the Stream objects that are going to be used by the clients.
     _configureStreams();
 
@@ -60,6 +63,10 @@ class GisSdkClient {
       );
     }
   }
+
+  // Needed to re-initialized the _codeClient when scopes change
+  final String _clientId;
+  final String? _hostedDomain;
 
   void _logIfEnabled(String message, [List<Object?>? more]) {
     if (_loggingEnabled) {
@@ -198,6 +205,7 @@ class GisSdkClient {
   CodeClient _initializeCodeClient(
     String clientId, {
     String? hostedDomain,
+    bool? includeGrantedScopes,
     required List<String> scopes,
     required CodeClientCallbackFn onResponse,
     required ErrorCallbackFn onError,
@@ -206,6 +214,7 @@ class GisSdkClient {
     final CodeClientConfig codeConfig = CodeClientConfig(
       client_id: clientId,
       hd: hostedDomain,
+      include_granted_scopes: includeGrantedScopes ?? true,
       callback: _onCodeResponse,
       error_callback: _onCodeError,
       scope: scopes,
@@ -296,13 +305,27 @@ class GisSdkClient {
 
   /// Requests a server auth code per:
   /// https://developers.google.com/identity/oauth2/web/guides/use-code-model#initialize_a_code_client
-  Future<String?> requestServerAuthCode() async {
+  Future<String?> requestServerAuthCode({
+    List<String>? scopes,
+    bool? includeGrantedScopes,
+  }) async {
     // TODO(dit): Enable granular authorization, https://github.com/flutter/flutter/issues/139406
+    if (scopes != null && scopes.isNotEmpty) {
+      _codeClient = _initializeCodeClient(
+        _clientId,
+        hostedDomain: _hostedDomain,
+        scopes: scopes,
+        includeGrantedScopes: includeGrantedScopes,
+        onResponse: _onCodeResponse,
+        onError: _onCodeError,
+      );
+    }
     assert(_codeClient != null,
-        'CodeClient not initialized correctly. Ensure the `scopes` list passed to `init()` or `initWithParams()` is not empty!');
+        'CodeClient not initialized correctly. Ensure the `scopes` list passed to `init()`, `initWithParams()` or `requestServerAuthCode()` is not empty!');
     if (_codeClient == null) {
       return null;
     }
+
     _codeClient!.requestCode();
     final CodeResponse response = await _codeResponses.stream.first;
     return response.code;

@@ -43,6 +43,12 @@ Widget renderButton({GSIButtonConfiguration? configuration}) {
 /// Requests server auth code from the GIS Client.
 ///
 /// See: https://developers.google.com/identity/oauth2/web/guides/use-code-model
-Future<String?> requestServerAuthCode() async {
-  return _plugin.requestServerAuthCode();
+Future<String?> requestServerAuthCode({
+  List<String>? scopes,
+  bool? includeGrantedScopes,
+}) async {
+  return _plugin.requestServerAuthCode(
+    scopes: scopes,
+    includeGrantedScopes: includeGrantedScopes,
+  );
 }
