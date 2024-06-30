@@ -1,3 +1,27 @@
+## 0.5.6+1
+
+* Fixes an issue where `dart:js_interop` object literal factories did not
+  compile with dart2js.
+
+## 0.5.6
+
+* Adds support for `MapConfiguration.style`.
+* Adds support for `getStyleError`.
+
+## 0.5.5
+* Migrates to `dart:js_interop` and `package:web` APIs.
+* Updates minimum supported SDK version to Flutter 3.19/Dart 3.3.
+
+## 0.5.4+3
+
+* Updates minimum supported SDK version to Flutter 3.10/Dart 3.0.
+* Fixes new lint warnings.
+
+## 0.5.4+2
+
+* Migrates to `dart:ui_web` APIs.
+* Updates minimum supported SDK version to Flutter 3.13.0/Dart 3.1.0.
+
 ## 0.5.4+1
 
 * Adds pub topics to package metadata.

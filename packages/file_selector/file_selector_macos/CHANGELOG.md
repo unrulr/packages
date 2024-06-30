@@ -1,3 +1,11 @@
+## NEXT
+
+* Updates minimum supported SDK version to Flutter 3.13/Dart 3.1.
+
+## 0.9.3+3
+
+* Fixes handling of unknown file extensions on macOS 11+.
+
 ## 0.9.3+2
 
 * Adds pub topics to package metadata.
