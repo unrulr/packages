@@ -607,8 +607,8 @@ class Camera {
   /// any of the available video mime types.
   String get _videoMimeType {
     const List<String> types = <String>[
-      'video/mp4',
       'video/webm',
+      'video/mp4',
     ];
 
     return types.firstWhere(
