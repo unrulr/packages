@@ -118,11 +118,9 @@
     return nil;
   }
   NSMutableDictionary *map = [[NSMutableDictionary alloc] init];
-  [map setObject:[locale objectForKey:NSLocaleCurrencySymbol] ?: [NSNull null]
-          forKey:@"currencySymbol"];
-  [map setObject:[locale objectForKey:NSLocaleCurrencyCode] ?: [NSNull null]
-          forKey:@"currencyCode"];
-  [map setObject:[locale objectForKey:NSLocaleCountryCode] ?: [NSNull null] forKey:@"countryCode"];
+  [map setObject:locale.currencySymbol ?: [NSNull null] forKey:@"currencySymbol"];
+  [map setObject:locale.currencyCode ?: [NSNull null] forKey:@"currencyCode"];
+  [map setObject:locale.countryCode ?: [NSNull null] forKey:@"countryCode"];
   return map;
 }
 
@@ -166,12 +164,11 @@
     return nil;
   }
 
-  NSMutableDictionary *userInfo = [NSMutableDictionary new];
-  for (NSErrorUserInfoKey key in error.userInfo) {
-    id value = error.userInfo[key];
-    userInfo[key] = [FIAObjectTranslator encodeNSErrorUserInfo:value];
-  }
-  return @{@"code" : @(error.code), @"domain" : error.domain ?: @"", @"userInfo" : userInfo};
+  return @{
+    @"code" : @(error.code),
+    @"domain" : error.domain ?: @"",
+    @"userInfo" : [FIAObjectTranslator encodeNSErrorUserInfo:error.userInfo]
+  };
 }
 
 + (id)encodeNSErrorUserInfo:(id)value {
@@ -187,6 +184,12 @@
     NSMutableArray *errors = [[NSMutableArray alloc] init];
     for (id error in value) {
       [errors addObject:[FIAObjectTranslator encodeNSErrorUserInfo:error]];
+    }
+    return errors;
+  } else if ([value isKindOfClass:[NSDictionary class]]) {
+    NSMutableDictionary *errors = [[NSMutableDictionary alloc] init];
+    for (id key in value) {
+      errors[key] = [FIAObjectTranslator encodeNSErrorUserInfo:value[key]];
     }
     return errors;
   } else {
@@ -504,9 +507,9 @@
     [pigeonProducts addObject:[self convertProductToPigeon:product]];
   };
 
-  SKProductsResponseMessage *msg =
-      [SKProductsResponseMessage makeWithProducts:pigeonProducts
-                        invalidProductIdentifiers:productsResponse.invalidProductIdentifiers];
+  SKProductsResponseMessage *msg = [SKProductsResponseMessage
+               makeWithProducts:pigeonProducts
+      invalidProductIdentifiers:productsResponse.invalidProductIdentifiers ?: @[]];
   return msg;
 }
 

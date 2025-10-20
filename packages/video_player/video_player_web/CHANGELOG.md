@@ -1,3 +1,16 @@
+## 2.3.2
+
+* Adds support for `web: ^1.0.0`.
+
+## 2.3.1
+
+* Fixes some `package:web` tweaks.
+
+## 2.3.0
+
+* Migrates package and tests to `package:web`.
+* Fixes infinite event loop caused by `seekTo` when the video ends.
+
 ## 2.2.0
 
 * Updates SDK version to Dart `^3.3.0`. Flutter `^3.19.0`.

@@ -955,7 +955,7 @@ class AndroidWebViewWidgetCreationParams
   /// For most use cases, this flag should be set to false. Hybrid Composition
   /// can have performance costs but doesn't have the limitation of rendering to
   /// an Android SurfaceTexture. See
-  /// * https://flutter.dev/docs/development/platform-integration/platform-views#performance
+  /// * https://docs.flutter.dev/platform-integration/android/platform-views#performance
   /// * https://github.com/flutter/flutter/issues/104889
   /// * https://github.com/flutter/flutter/issues/116954
   ///
@@ -1297,6 +1297,25 @@ class AndroidNavigationDelegate extends PlatformNavigationDelegate {
           callback(url);
         }
       },
+      onReceivedHttpError: (
+        android_webview.WebView webView,
+        android_webview.WebResourceRequest request,
+        android_webview.WebResourceResponse response,
+      ) {
+        if (weakThis.target?._onHttpError != null) {
+          weakThis.target!._onHttpError!(
+            HttpResponseError(
+              request: WebResourceRequest(
+                uri: Uri.parse(request.url),
+              ),
+              response: WebResourceResponse(
+                uri: null,
+                statusCode: response.statusCode,
+              ),
+            ),
+          );
+        }
+      },
       onReceivedRequestError: (
         android_webview.WebView webView,
         android_webview.WebResourceRequest request,
@@ -1429,6 +1448,7 @@ class AndroidNavigationDelegate extends PlatformNavigationDelegate {
 
   PageEventCallback? _onPageFinished;
   PageEventCallback? _onPageStarted;
+  HttpResponseErrorCallback? _onHttpError;
   ProgressCallback? _onProgress;
   WebResourceErrorCallback? _onWebResourceError;
   NavigationRequestCallback? _onNavigationRequest;
@@ -1444,7 +1464,11 @@ class AndroidNavigationDelegate extends PlatformNavigationDelegate {
     final LoadRequestCallback? onLoadRequest = _onLoadRequest;
     final NavigationRequestCallback? onNavigationRequest = _onNavigationRequest;
 
-    if (onNavigationRequest == null || onLoadRequest == null) {
+    // The client is only allowed to stop navigations that target the main frame because
+    // overridden URLs are passed to `loadUrl` and `loadUrl` cannot load a subframe.
+    if (!isForMainFrame ||
+        onNavigationRequest == null ||
+        onLoadRequest == null) {
       return;
     }
 
@@ -1501,6 +1525,13 @@ class AndroidNavigationDelegate extends PlatformNavigationDelegate {
     PageEventCallback onPageFinished,
   ) async {
     _onPageFinished = onPageFinished;
+  }
+
+  @override
+  Future<void> setOnHttpError(
+    HttpResponseErrorCallback onHttpError,
+  ) async {
+    _onHttpError = onHttpError;
   }
 
   @override
